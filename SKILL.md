@@ -7,8 +7,12 @@ description: >-
   with automatic model rotation. Use when: (1) building features with 2+
   parallel agents, (2) orchestrating multi-branch development with auto-merge,
   (3) managing agent duty rotation across Claude/Codex/Gemini, (4) running
-  automated code review and integration pipelines. Requires: tmux, git, python3,
-  and at least one coding CLI (claude, codex, or gemini).
+  automated code review and integration pipelines.
+  Requires: tmux, git, python3, bash 4+, and at least one CLI (claude/codex/gemini).
+  Optional: gh (GitHub CLI), openclaw (notifications). Uses git/gh credentials
+  for repo operations and openclaw for configurable notifications (swarm.conf).
+  Creates persistent state (~/.openclaw/workspace/swarm/, cron jobs, tmux sessions).
+  Review setup.sh before use — this orchestrator modifies repos and auto-merges.
 ---
 
 # AI Swarm
@@ -111,7 +115,7 @@ EOF
 bash ~/workspace/swarm/spawn-batch.sh "/path/to/project" "batch-id" "Description" /tmp/tasks.json
 ```
 
-This single command: creates worktrees, spawns tmux sessions, starts per-agent watchers, starts integration watcher, registers tasks, logs usage.
+This single command: auto-creates endorsement files (for batch convenience — the human endorsement gate is at Step 4 BEFORE calling spawn-batch), creates worktrees, spawns tmux sessions, starts per-agent watchers, starts integration watcher, registers tasks, logs usage.
 
 ### spawn-agent.sh (single task only)
 
