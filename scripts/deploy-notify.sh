@@ -5,6 +5,18 @@
 PROJECT_DIR="$1"
 COMMIT="$2"
 
+# Load swarm config (notifications, etc.)
+SWARM_DIR="$(cd "$(dirname "$0")" && pwd)"
+[[ -f "$SWARM_DIR/swarm.conf" ]] && source "$SWARM_DIR/swarm.conf"
+NOTIFY_TARGET="${SWARM_NOTIFY_TARGET:-}"
+NOTIFY_CHANNEL="${SWARM_NOTIFY_CHANNEL:-telegram}"
+
+send_notify() {
+  local msg="$1"
+  [[ -z "$NOTIFY_TARGET" ]] && return 0
+  openclaw message send --channel "$NOTIFY_CHANNEL" --target "$NOTIFY_TARGET" --message "$msg" 2>/dev/null || true
+}
+
 cd "$PROJECT_DIR" || exit 1
 
 # Get repo name from git remote
@@ -29,21 +41,18 @@ for i in $(seq 1 30); do
 
     if [ "$RUN_STATUS" = "completed" ]; then
         if [ "$CONCLUSION" = "success" ]; then
-            openclaw message send --channel telegram --target "6148615057" \
-                --message "✅ CI Build PASSED for $PROJECT_NAME (${COMMIT:0:7}) — github.com/$REPO/actions"
+            send_notify "✅ CI Build PASSED for $PROJECT_NAME (${COMMIT:0:7}) — github.com/$REPO/actions"
             echo "Build passed!"
             exit 0
         else
             RUN_URL=$(gh run list --commit "$COMMIT" --limit 1 --json url -q '.[0].url' 2>/dev/null)
-            openclaw message send --channel telegram --target "6148615057" \
-                --message "❌ CI Build FAILED for $PROJECT_NAME (${COMMIT:0:7}) — $RUN_URL"
+            send_notify "❌ CI Build FAILED for $PROJECT_NAME (${COMMIT:0:7}) — $RUN_URL"
             echo "Build failed!"
             exit 1
         fi
     fi
 done
 
-openclaw message send --channel telegram --target "6148615057" \
-    --message "⏰ CI Build timed out for $PROJECT_NAME (${COMMIT:0:7}) — check GitHub Actions manually"
+send_notify "⏰ CI Build timed out for $PROJECT_NAME (${COMMIT:0:7}) — check GitHub Actions manually"
 echo "Timed out waiting for build"
 exit 2

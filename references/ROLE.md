@@ -24,7 +24,7 @@ Duty table: `~/workspace/swarm/duty-table.json`
 
 **Step 1: CONTEXT**
 - Read project ESR (`docs/ESR.md`) for current state
-- Read Obsidian vault notes for WB's vision/requirements
+- Read project notes (if configured via OBSIDIAN_BASE) for WB's vision/requirements
 - Read recent codebase changes (`git log`, key files)
 
 **Step 2: RESEARCH**
@@ -103,7 +103,7 @@ spawn-batch.sh "<project-dir>" "<batch-id>" "<description>" "<tasks.json>"
 
 **Step 10: ESR**
 - Update project ESR (`docs/ESR.md`)
-- Update Obsidian vault if applicable
+- Update Obsidian vault if configured (OBSIDIAN_BASE in swarm.conf)
 - Log to `memory/YYYY-MM-DD.md`
 
 **Step 11: NOTIFY**

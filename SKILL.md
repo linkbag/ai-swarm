@@ -49,11 +49,25 @@ Tests which agents (Claude/Codex/Gemini) are available and configures the duty t
 
 Default install: `~/.openclaw/workspace/swarm/`. Creates directories, config files, cron jobs, and role files. Safe to re-run — never overwrites existing state.
 
+## Configuration
+
+`setup.sh` generates `~/.openclaw/workspace/swarm/swarm.conf`. Edit to configure:
+
+```bash
+SWARM_NOTIFY_TARGET=""       # Telegram/Discord user ID for notifications (leave blank to disable)
+SWARM_NOTIFY_CHANNEL="telegram"  # telegram | discord | slack
+OBSIDIAN_BASE=""             # Path to Obsidian vaults root (optional)
+ROUTER_DUTY=""               # Path to router duty table (optional)
+```
+
+All settings can also be set as environment variables. The config file is sourced at the start of each script.
+
 ## Architecture
 
 ```
 swarm/
 ├── scripts/         ← 17 core scripts (spawn, monitor, integrate, assess)
+├── swarm.conf       ← User configuration (notifications, Obsidian path, etc.)
 ├── duty-table.json  ← Model assignments (auto-rotated every 6h)
 ├── active-tasks.json← Task registry
 ├── endorsements/    ← Approval files (one per task)
@@ -144,3 +158,10 @@ Install to `roles/swarm-lead/` (done automatically by `setup.sh`):
 4. **Work logs flow** — `/tmp/worklog-{session}.md` from builder → reviewer → integrator
 5. **Auto-merge** — merge after review+tests pass, only flag user on unresolvable conflicts
 6. **Never overwrite state** — setup.sh preserves existing duty-table.json, active-tasks.json
+
+## Security Notes
+
+- Scripts use `--permission-mode bypassPermissions` (Claude) and `--full-auto` (Codex) for non-interactive execution — these are the supported, documented flags for unattended operation
+- Notification target IDs are stored in `swarm.conf` (not hardcoded) — configure via `SWARM_NOTIFY_TARGET`
+- Obsidian sync is optional and disabled by default — enable via `OBSIDIAN_BASE` in `swarm.conf`
+- Scripts work with whatever API keys are already in the environment — no keys are set or unset

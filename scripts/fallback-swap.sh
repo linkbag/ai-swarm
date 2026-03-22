@@ -36,7 +36,7 @@ elif kind == 'fallback':
         agent = fb.get('agent', '')
         model = fb.get('model', '')
         if agent == 'claude':
-            cmd = f'claude --model {model} --dangerously-skip-permissions -p'
+            cmd = f'claude --model {model} --permission-mode bypassPermissions --print'
         elif agent == 'gemini':
             cmd = f'gemini -m {model}'  # -y -p added by caller wrapper
         elif agent == 'codex':
@@ -102,7 +102,7 @@ role['model'] = fallback['model']
 
 # Rebuild nonInteractiveCmd for new primary
 if fallback['agent'] == 'claude':
-    role['nonInteractiveCmd'] = f"claude --model {fallback['model']} --dangerously-skip-permissions -p"
+    role['nonInteractiveCmd'] = f"claude --model {fallback['model']} --permission-mode bypassPermissions --print"
 elif fallback['agent'] == 'gemini':
     role['nonInteractiveCmd'] = f"gemini -m {fallback['model']}"
 elif fallback['agent'] == 'codex':

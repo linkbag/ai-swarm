@@ -12,7 +12,7 @@
 #   On completion: work log saved to <project>/docs/history/, ESR auto-updated.
 
 # Ensure PATH includes openclaw + node (for cron/detached contexts)
-export PATH="/home/dz/.npm-global/bin:/home/dz/.local/bin:/usr/local/bin:/usr/bin:/bin:/home/dz/.volta/bin:/home/dz/.nvm/current/bin:$PATH"
+export PATH="$(dirname "$(command -v openclaw 2>/dev/null || echo /usr/local/bin/openclaw)"):/usr/local/bin:/usr/bin:/bin:$PATH"
 
 set -euo pipefail
 
@@ -31,6 +31,9 @@ while [[ $# -gt 0 ]]; do
 done
 
 SWARM_DIR="$(cd "$(dirname "$0")" && pwd)"
+[[ -f "$SWARM_DIR/swarm.conf" ]] && source "$SWARM_DIR/swarm.conf"
+NOTIFY_TARGET="${SWARM_NOTIFY_TARGET:-}"
+NOTIFY_CHANNEL="${SWARM_NOTIFY_CHANNEL:-telegram}"
 NOTIFY_FILE="$SWARM_DIR/pending-notifications.txt"
 POLL_INTERVAL=60
 WORKLOG="/tmp/worklog-${SESSION}.md"
@@ -40,8 +43,12 @@ echo "[watcher] Watching session: $SESSION (poll: ${POLL_INTERVAL}s, review: ${R
 
 send_telegram() {
   local msg="$1"
-  openclaw message send --channel telegram --target "6148615057" --message "$msg" 2>/dev/null || {
-    echo "[watcher] ⚠️ Telegram send failed"
+  if [[ -z "$NOTIFY_TARGET" ]]; then
+    echo "[watcher] No NOTIFY_TARGET configured, skipping notification"
+    return 0
+  fi
+  openclaw message send --channel "$NOTIFY_CHANNEL" --target "$NOTIFY_TARGET" --message "$msg" 2>/dev/null || {
+    echo "[watcher] ⚠️ Notification send failed"
     echo "$msg" >> "$NOTIFY_FILE"
   }
 }
@@ -249,7 +256,7 @@ Or if issues remain that you couldn't fix:
 REVIEW_PROMPT_EOF
 
   # Use fallback-swap to get the working reviewer command (tests primary, swaps if needed)
-  REVIEW_CMD=$("$SWARM_DIR/fallback-swap.sh" reviewer 2>/dev/null) || REVIEW_CMD="claude --model claude-sonnet-4-6 --dangerously-skip-permissions -p"
+  REVIEW_CMD=$("$SWARM_DIR/fallback-swap.sh" reviewer 2>/dev/null) || REVIEW_CMD="claude --model claude-sonnet-4-6 --permission-mode bypassPermissions --print"
 
   # Build the reviewer wrapper — gemini needs -y -p (yolo + prompt arg), claude uses -p
   REVIEW_WRAPPER="/tmp/review-wrapper-${REVIEW_SESSION}.sh"

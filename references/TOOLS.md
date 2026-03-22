@@ -21,16 +21,16 @@ JSON
 
 # 3. Spawn batch (auto-endorses + auto-integration)
 cd ~/workspace/swarm
-bash spawn-batch.sh "/mnt/d/Startup projects/ProjectName" "batch-id" "Batch description" /tmp/batch-tasks.json
+bash spawn-batch.sh "~/projects/ProjectName" "batch-id" "Batch description" /tmp/batch-tasks.json
 ```
 
 ## Agent CLI Commands
 
 | Agent | Non-Interactive Command |
 |-------|------------------------|
-| Claude | `claude --model X --dangerously-skip-permissions -p "prompt"` |
-| Codex | `codex --model X --dangerously-bypass-approvals-and-sandbox "prompt"` |
-| Gemini | `GEMINI_API_KEY=$KEY gemini --model X -p "prompt"` |
+| Claude | `claude --model X --permission-mode bypassPermissions --print "prompt"` |
+| Codex | `codex --model X --full-auto "prompt"` |
+| Gemini | `gemini --model X -p "prompt"` |
 
 ## Integration Conflict Resolution Patterns
 

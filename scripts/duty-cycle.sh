@@ -8,11 +8,14 @@
 set -euo pipefail
 
 SWARM_DIR="$(cd "$(dirname "$0")" && pwd)"
+[[ -f "$SWARM_DIR/swarm.conf" ]] && source "$SWARM_DIR/swarm.conf"
+NOTIFY_TARGET="${SWARM_NOTIFY_TARGET:-}"
+NOTIFY_CHANNEL="${SWARM_NOTIFY_CHANNEL:-telegram}"
 LOG_DIR="$SWARM_DIR/logs"
 mkdir -p "$LOG_DIR"
 
 DUTY_TABLE="$SWARM_DIR/duty-table.json"
-ROUTER_DUTY="/mnt/d/OpenClaw/projects/OpenClaw_HW/.clawdbot/router/duty-table.json"
+ROUTER_DUTY="${ROUTER_DUTY:-}"
 
 # 1) Re-assess availability (best effort)
 "$SWARM_DIR/assess-models.sh" >> "$LOG_DIR/assessment.log" 2>&1 || true
@@ -90,7 +93,7 @@ def model_for(agent: str, role: str, available: dict):
 
 def cmd_for(agent: str, model: str):
     if agent == 'claude':
-        return f'claude --model {model} --dangerously-skip-permissions -p'
+        return f'claude --model {model} --permission-mode bypassPermissions --print'
     if agent == 'codex':
         return f'codex exec --model {model} --full-auto -'
     if agent == 'gemini':
@@ -182,7 +185,9 @@ h=j.get('history',[])
 print(h[-1].get('changes','')) if h else print('')
 PY
 )
-  openclaw message send --channel telegram --target "6148615057" --message "⚙️ Duty auto-rotation applied: $LAST_CHANGE" 2>/dev/null || true
+  if [[ -n "$NOTIFY_TARGET" ]]; then
+    openclaw message send --channel "$NOTIFY_CHANNEL" --target "$NOTIFY_TARGET" --message "⚙️ Duty auto-rotation applied: $LAST_CHANGE" 2>/dev/null || true
+  fi
 fi
 
 rm -f "$USAGE_JSON"
