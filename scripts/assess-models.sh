@@ -13,6 +13,11 @@
 
 set -euo pipefail
 
+# macOS compatibility: use gtimeout if timeout not available
+if ! command -v timeout &>/dev/null && command -v gtimeout &>/dev/null; then
+  timeout() { gtimeout "$@"; }
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DUTY_TABLE="$SCRIPT_DIR/duty-table.json"
 RESULTS_LOG="$SCRIPT_DIR/assessment.log"
@@ -85,7 +90,8 @@ declare -A MODEL_STATUS
 
 test_model() {
   local agent="$1" model="$2" cmd="$3"
-  local result
+  local tmpout result_file
+  result_file=$(mktemp)
   echo -n "  Testing $agent / $model ... " | tee -a "$RESULTS_LOG"
 
   # Create a temp git repo for codex (codex requires a git repo)
@@ -96,20 +102,49 @@ test_model() {
     cmd="cd $tmpdir && $cmd"
   fi
 
-  if result=$(timeout 120 bash -c "$cmd" 2>&1); then
-    if echo "$result" | grep -qi "error\|quota\|unauthorized\|401\|429\|rate.limit\|exceeded\|capacity"; then
-      echo "FAIL: $(echo "$result" | tail -1)" | tee -a "$RESULTS_LOG"
-      MODEL_STATUS["${agent}/${model}"]="unavailable"
+  # Run from /tmp to avoid CLIs picking up workspace context.
+  # Gemini needs stdin closed (hangs waiting for input otherwise).
+  # Claude needs stdin open (fails with closed stdin).
+  local pid exit_code=0
+  if [[ "$agent" == "gemini" ]]; then
+    bash -c "cd /tmp && $cmd" < /dev/null > "$result_file" 2>&1 &
+  else
+    bash -c "cd /tmp && $cmd" > "$result_file" 2>&1 &
+  fi
+  pid=$!
+
+  # Wait up to 45 seconds
+  local waited=0 running=1
+  while (( running && waited < 45 )); do
+    if ! kill -0 "$pid" 2>/dev/null; then
+      running=0
     else
+      sleep 1
+      (( waited++ )) || true
+    fi
+  done
+
+  if (( running )) && kill -0 "$pid" 2>/dev/null; then
+    # Still running after timeout — force kill
+    kill -9 "$pid" 2>/dev/null
+    wait "$pid" 2>/dev/null || true
+    echo "TIMEOUT" | tee -a "$RESULTS_LOG"
+    MODEL_STATUS["${agent}/${model}"]="unavailable"
+  else
+    wait "$pid" 2>/dev/null
+    exit_code=$?
+    local result
+    result=$(cat "$result_file")
+    if [[ $exit_code -eq 0 ]] && ! echo "$result" | grep -qi "error\|quota\|unauthorized\|401\|429\|rate.limit\|exceeded\|capacity"; then
       echo "OK" | tee -a "$RESULTS_LOG"
       MODEL_STATUS["${agent}/${model}"]="available"
+    else
+      echo "FAIL: $(echo "$result" | tail -1)" | tee -a "$RESULTS_LOG"
+      MODEL_STATUS["${agent}/${model}"]="unavailable"
     fi
-  else
-    echo "TIMEOUT or FAIL" | tee -a "$RESULTS_LOG"
-    MODEL_STATUS["${agent}/${model}"]="unavailable"
   fi
 
-  # Cleanup codex temp dir
+  rm -f "$result_file" 2>/dev/null
   [[ -n "$tmpdir" ]] && rm -rf "$tmpdir" 2>/dev/null || true
 }
 
@@ -117,8 +152,8 @@ PROBE="Reply with ONLY the word HELLO, nothing else."
 
 echo "" | tee -a "$RESULTS_LOG"
 echo "Claude Code (OAuth)" | tee -a "$RESULTS_LOG"
-test_model "claude" "claude-opus-4-6" "claude --model claude-opus-4-6 -p '$PROBE'"
-test_model "claude" "claude-sonnet-4-6" "claude --model claude-sonnet-4-6 -p '$PROBE'"
+test_model "claude" "claude-opus-4-6" "claude --model claude-opus-4-6 --dangerously-skip-permissions -p '$PROBE'"
+test_model "claude" "claude-sonnet-4-6" "claude --model claude-sonnet-4-6 --dangerously-skip-permissions -p '$PROBE'"
 
 echo "" | tee -a "$RESULTS_LOG"
 echo "Codex (OAuth/ChatGPT Plus)" | tee -a "$RESULTS_LOG"
@@ -196,6 +231,13 @@ echo "  speedster  = $SPEEDSTER" | tee -a "$RESULTS_LOG"
 # ============================================================
 # UPDATE DUTY TABLE
 # ============================================================
+# Build model status summary from bash vars
+MODEL_SUMMARY=""
+for key in "${!MODEL_STATUS[@]}"; do
+  MODEL_SUMMARY="${MODEL_SUMMARY}${key}=${MODEL_STATUS[$key]}, "
+done
+MODEL_SUMMARY="${MODEL_SUMMARY%, }"
+
 python3 -c "
 import json, datetime
 with open('$DUTY_TABLE') as f: data = json.load(f)
@@ -216,22 +258,12 @@ for role, am in {'architect':'$ARCHITECT','workhorse':'$WORKHORSE','reviewer':'$
 
 data['history'].append({
     'date': now.strftime('%Y-%m-%d'),
-    'changes': 'Weekly assessment: ' + ', '.join(f'{k}={v}' for k,v in sorted(dict(MODEL_STATUS).items()) if True),
+    'changes': 'Weekly assessment: $MODEL_SUMMARY',
     'dutyAssignments': 'architect=$ARCHITECT, workhorse=$WORKHORSE, reviewer=$REVIEWER, speedster=$SPEEDSTER'
 })
 with open('$DUTY_TABLE', 'w') as f: json.dump(data, f, indent=2)
 print('duty-table.json updated')
-" 2>/dev/null || {
-  # Fallback python - simpler
-  python3 << 'PYEOF'
-import json, datetime
-with open("$DUTY_TABLE") as f: data = json.load(f)
-now = datetime.datetime.now().astimezone()
-data["assessedAt"] = now.isoformat()
-data["nextAssessment"] = (now + datetime.timedelta(days=7)).isoformat()
-with open("$DUTY_TABLE", "w") as f: json.dump(data, f, indent=2)
-PYEOF
-}
+"
 
 # Notify
 openclaw message send --channel telegram --target "6148615057" \
