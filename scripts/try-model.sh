@@ -18,7 +18,7 @@ TIMEOUT=45
 
 case "$AGENT" in
   claude)
-    timeout "$TIMEOUT" bash -c "echo 'Reply with OK' | claude --model $MODEL --dangerously-skip-permissions -p 'Reply with just OK'" >/dev/null 2>&1
+    timeout "$TIMEOUT" bash -c "echo 'Reply with OK' | claude --model $MODEL --permission-mode bypassPermissions --print 'Reply with just OK'" >/dev/null 2>&1
     ;;
   gemini)
     timeout "$TIMEOUT" bash -c "gemini -m $MODEL -y -p 'Reply with just OK'" >/dev/null 2>&1

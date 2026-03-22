@@ -8,7 +8,7 @@
 # It starts the integration watcher in the background — same as spawn-batch.sh does.
 #
 # Example:
-#   start-integration.sh "/mnt/d/Startup projects/MyApp" "Feature X (backend + frontend)" mb-backend mb-frontend
+#   start-integration.sh "~/projects/MyApp" "Feature X (backend + frontend)" mb-backend mb-frontend
 
 set -euo pipefail
 

@@ -220,10 +220,10 @@ cd "$WORK_DIR"
 PROMPT=\$(cat "$PROMPT_FILE")
 case "$AGENT" in
   codex)
-    codex --model $MODEL -c "model_reasoning_effort=$REASONING" --dangerously-bypass-approvals-and-sandbox "\$PROMPT"
+    codex --model $MODEL -c "model_reasoning_effort=$REASONING" --full-auto "\$PROMPT"
     ;;
   claude)
-    claude --model $MODEL --dangerously-skip-permissions -p "\$PROMPT"
+    claude --model $MODEL --permission-mode bypassPermissions --print "\$PROMPT"
     ;;
   gemini)
     GEMINI_API_KEY="${GEMINI_API_KEY:-}" gemini --model $MODEL -p "\$PROMPT"

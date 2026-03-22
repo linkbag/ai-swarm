@@ -9,7 +9,7 @@
 # All work logs are persisted to <project>/docs/history/ for orchestrator traceability
 
 # Ensure PATH includes openclaw + node (for cron/detached contexts)
-export PATH="/home/dz/.npm-global/bin:/home/dz/.local/bin:/usr/local/bin:/usr/bin:/bin:/home/dz/.volta/bin:/home/dz/.nvm/current/bin:$PATH"
+export PATH="$(dirname "$(command -v openclaw 2>/dev/null || echo /usr/local/bin/openclaw)"):/usr/local/bin:/usr/bin:/bin:$PATH"
 
 set -euo pipefail
 
@@ -27,6 +27,9 @@ if [[ ${#SESSIONS[@]} -gt $MAX_PARALLEL ]]; then
 fi
 
 SWARM_DIR="$(cd "$(dirname "$0")" && pwd)"
+[[ -f "$SWARM_DIR/swarm.conf" ]] && source "$SWARM_DIR/swarm.conf"
+NOTIFY_TARGET="${SWARM_NOTIFY_TARGET:-}"
+NOTIFY_CHANNEL="${SWARM_NOTIFY_CHANNEL:-telegram}"
 NOTIFY_FILE="$SWARM_DIR/pending-notifications.txt"
 POLL_INTERVAL=60
 MAX_REVIEW_LOOPS=3
@@ -35,8 +38,12 @@ INTEGRATION_LOG="/tmp/worklog-integration-${PROJECT_NAME}.md"
 
 send_telegram() {
   local msg="$1"
-  openclaw message send --channel telegram --target "6148615057" --message "$msg" 2>/dev/null || {
-    echo "[integration] ⚠️ Telegram send failed"
+  if [[ -z "$NOTIFY_TARGET" ]]; then
+    echo "[integration] No NOTIFY_TARGET configured, skipping notification"
+    return 0
+  fi
+  openclaw message send --channel "$NOTIFY_CHANNEL" --target "$NOTIFY_TARGET" --message "$msg" 2>/dev/null || {
+    echo "[integration] ⚠️ Notification send failed"
     echo "$msg" >> "$NOTIFY_FILE"
   }
 }
@@ -216,7 +223,7 @@ INTEG_PROMPT_EOF
 
   # Use fallback-swap to get the working speedster command (tests primary, swaps if needed)
   SWARM_DIR="$(cd "$(dirname "$0")" && pwd)"
-  INTEG_CMD=$("$SWARM_DIR/fallback-swap.sh" speedster 2>/dev/null) || INTEG_CMD="claude --model claude-sonnet-4-6 --dangerously-skip-permissions -p"
+  INTEG_CMD=$("$SWARM_DIR/fallback-swap.sh" speedster 2>/dev/null) || INTEG_CMD="claude --model claude-sonnet-4-6 --permission-mode bypassPermissions --print"
 
   INTEG_WRAPPER="/tmp/integ-wrapper-${INTEG_SESSION}.sh"
   if echo "$INTEG_CMD" | grep -q "^gemini"; then

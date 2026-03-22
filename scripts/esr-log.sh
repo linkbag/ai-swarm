@@ -5,12 +5,15 @@
 #
 # Maintains ONE living ESR per project at:
 #   - <project>/docs/ESR.md (codebase, pushed to GitHub)
-#   - /mnt/d/Obsidian projects/<Project>/ESR.md (Obsidian vault)
+#   - $OBSIDIAN_BASE/<Project>/ESR.md (Obsidian vault, if OBSIDIAN_BASE is set)
 #
 # This is NOT a per-agent log. It's an executive summary maintained by the orchestrator.
 # Contains: what's been achieved, latest updates, what's next, actionable levers.
 
 set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+[[ -f "$SCRIPT_DIR/swarm.conf" ]] && source "$SCRIPT_DIR/swarm.conf"
 
 PROJECT_DIR="${1:?Usage: esr-log.sh <project-dir> [summary-text]}"
 SUMMARY="${2:-}"
@@ -21,8 +24,7 @@ DATE=$(date "+%Y-%m-%d")
 
 # Determine paths
 CODEBASE_ESR="$PROJECT_DIR/docs/ESR.md"
-OBSIDIAN_BASE="/mnt/d/Obsidian projects"
-OBSIDIAN_ESR="$OBSIDIAN_BASE/$PROJECT_NAME/ESR.md"
+OBSIDIAN_BASE="${OBSIDIAN_BASE:-}"
 
 # Migrate old EOR → ESR if needed
 OLD_EOR="$PROJECT_DIR/docs/EOR.md"
@@ -32,16 +34,20 @@ if [[ -f "$OLD_EOR" ]] && [[ ! -f "$CODEBASE_ESR" ]]; then
   sed -i 's/EOR/ESR/g' "$CODEBASE_ESR"
   echo "[esr] Migrated EOR → ESR for $PROJECT_NAME"
 fi
-OLD_OBS_EOR="$OBSIDIAN_BASE/$PROJECT_NAME/EOR.md"
-if [[ -f "$OLD_OBS_EOR" ]] && [[ ! -f "$OBSIDIAN_ESR" ]]; then
-  mv "$OLD_OBS_EOR" "$OBSIDIAN_ESR"
-  sed -i 's/Executive Summary (EOR)/Executive Summary Report (ESR)/g' "$OBSIDIAN_ESR"
-  sed -i 's/EOR/ESR/g' "$OBSIDIAN_ESR"
+
+# Migrate old Obsidian EOR → ESR if Obsidian is configured
+if [[ -n "$OBSIDIAN_BASE" ]]; then
+  OLD_OBS_EOR="$OBSIDIAN_BASE/$PROJECT_NAME/EOR.md"
+  OBSIDIAN_ESR="$OBSIDIAN_BASE/$PROJECT_NAME/ESR.md"
+  if [[ -f "$OLD_OBS_EOR" ]] && [[ ! -f "$OBSIDIAN_ESR" ]]; then
+    mv "$OLD_OBS_EOR" "$OBSIDIAN_ESR"
+    sed -i 's/Executive Summary (EOR)/Executive Summary Report (ESR)/g' "$OBSIDIAN_ESR"
+    sed -i 's/EOR/ESR/g' "$OBSIDIAN_ESR"
+  fi
 fi
 
-# Create directories
+# Create codebase docs directory
 mkdir -p "$PROJECT_DIR/docs"
-mkdir -p "$OBSIDIAN_BASE/$PROJECT_NAME"
 
 # If ESR doesn't exist yet, create template
 if [[ ! -f "$CODEBASE_ESR" ]]; then
@@ -73,7 +79,7 @@ fi
 if [[ -n "$SUMMARY" ]]; then
   # Update the "Last updated" timestamp
   sed -i "s/\*Last updated:.*\*/*Last updated: $TIMESTAMP*/" "$CODEBASE_ESR"
-  
+
   # Append update entry
   cat >> "$CODEBASE_ESR" << UPDATE
 
@@ -82,9 +88,13 @@ $SUMMARY
 UPDATE
 fi
 
-# Sync to Obsidian
-cp "$CODEBASE_ESR" "$OBSIDIAN_ESR"
-
 echo "[esr] Updated ESR for $PROJECT_NAME at $TIMESTAMP"
 echo "  → $CODEBASE_ESR"
-echo "  → $OBSIDIAN_ESR"
+
+# Sync to Obsidian (optional)
+if [[ -n "$OBSIDIAN_BASE" ]]; then
+  OBSIDIAN_ESR="$OBSIDIAN_BASE/$PROJECT_NAME/ESR.md"
+  mkdir -p "$OBSIDIAN_BASE/$PROJECT_NAME"
+  cp "$CODEBASE_ESR" "$OBSIDIAN_ESR"
+  echo "  → $OBSIDIAN_ESR"
+fi

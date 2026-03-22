@@ -19,6 +19,9 @@ if ! command -v timeout &>/dev/null && command -v gtimeout &>/dev/null; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+[[ -f "$SCRIPT_DIR/swarm.conf" ]] && source "$SCRIPT_DIR/swarm.conf"
+NOTIFY_TARGET="${SWARM_NOTIFY_TARGET:-}"
+NOTIFY_CHANNEL="${SWARM_NOTIFY_CHANNEL:-telegram}"
 DUTY_TABLE="$SCRIPT_DIR/duty-table.json"
 RESULTS_LOG="$SCRIPT_DIR/assessment.log"
 DRY_RUN=""
@@ -32,8 +35,6 @@ for arg in "$@"; do
 done
 
 [ -f "$HOME/.bashrc" ] && source "$HOME/.bashrc" 2>/dev/null || true
-unset OPENAI_API_KEY 2>/dev/null || true
-unset GEMINI_API_KEY 2>/dev/null || true
 
 echo "Model Assessment — $(date '+%Y-%m-%d %H:%M %Z')" | tee "$RESULTS_LOG"
 echo "=========================================" | tee -a "$RESULTS_LOG"
@@ -58,10 +59,10 @@ data['assessedAt'] = now.isoformat()
 # Re-assess in 3 days (not full week) to try optimal table sooner
 data['nextAssessment'] = (now + datetime.timedelta(hours=6)).isoformat()
 data['dutyTable'] = {
-    'architect': {'agent': 'claude', 'model': 'claude-opus-4-6', 'reason': 'FALLBACK: High token limit, best reasoning', 'nonInteractiveCmd': 'claude --model claude-opus-4-6 --dangerously-skip-permissions -p'},
-    'workhorse': {'agent': 'claude', 'model': 'claude-sonnet-4-6', 'reason': 'FALLBACK: High token limit, reliable', 'nonInteractiveCmd': 'claude --model claude-sonnet-4-6 --dangerously-skip-permissions -p'},
-    'reviewer': {'agent': 'claude', 'model': 'claude-sonnet-4-6', 'reason': 'FALLBACK: High token limit, fast review', 'nonInteractiveCmd': 'claude --model claude-sonnet-4-6 --dangerously-skip-permissions -p'},
-    'speedster': {'agent': 'claude', 'model': 'claude-sonnet-4-6', 'reason': 'FALLBACK: High token limit, fastest reliable', 'nonInteractiveCmd': 'claude --model claude-sonnet-4-6 --dangerously-skip-permissions -p'}
+    'architect': {'agent': 'claude', 'model': 'claude-opus-4-6', 'reason': 'FALLBACK: High token limit, best reasoning', 'nonInteractiveCmd': 'claude --model claude-opus-4-6 --permission-mode bypassPermissions --print'},
+    'workhorse': {'agent': 'claude', 'model': 'claude-sonnet-4-6', 'reason': 'FALLBACK: High token limit, reliable', 'nonInteractiveCmd': 'claude --model claude-sonnet-4-6 --permission-mode bypassPermissions --print'},
+    'reviewer': {'agent': 'claude', 'model': 'claude-sonnet-4-6', 'reason': 'FALLBACK: High token limit, fast review', 'nonInteractiveCmd': 'claude --model claude-sonnet-4-6 --permission-mode bypassPermissions --print'},
+    'speedster': {'agent': 'claude', 'model': 'claude-sonnet-4-6', 'reason': 'FALLBACK: High token limit, fastest reliable', 'nonInteractiveCmd': 'claude --model claude-sonnet-4-6 --permission-mode bypassPermissions --print'}
 }
 data['history'].append({
     'date': now.strftime('%Y-%m-%d'),
@@ -73,9 +74,11 @@ print('duty-table.json updated (FALLBACK)')
 " | tee -a "$RESULTS_LOG"
 
   # Notify
-  openclaw message send --channel telegram --target "6148615057" \
-    --message "⚠️ Swarm duty table → FALLBACK (Claude-heavy). Codex/Gemini hit limits. Will re-assess in 3 days." \
-    2>/dev/null || echo "⚠️ Telegram notify failed" >> "$RESULTS_LOG"
+  if [[ -n "$NOTIFY_TARGET" ]]; then
+    openclaw message send --channel "$NOTIFY_CHANNEL" --target "$NOTIFY_TARGET" \
+      --message "⚠️ Swarm duty table → FALLBACK (Claude-heavy). Codex/Gemini hit limits. Will re-assess in 3 days." \
+      2>/dev/null || echo "⚠️ Notification send failed" >> "$RESULTS_LOG"
+  fi
 }
 
 if [[ -n "$FORCE_FALLBACK" ]]; then
@@ -152,8 +155,8 @@ PROBE="Reply with ONLY the word HELLO, nothing else."
 
 echo "" | tee -a "$RESULTS_LOG"
 echo "Claude Code (OAuth)" | tee -a "$RESULTS_LOG"
-test_model "claude" "claude-opus-4-6" "claude --model claude-opus-4-6 --dangerously-skip-permissions -p '$PROBE'"
-test_model "claude" "claude-sonnet-4-6" "claude --model claude-sonnet-4-6 --dangerously-skip-permissions -p '$PROBE'"
+test_model "claude" "claude-opus-4-6" "claude --model claude-opus-4-6 --permission-mode bypassPermissions --print '$PROBE'"
+test_model "claude" "claude-sonnet-4-6" "claude --model claude-sonnet-4-6 --permission-mode bypassPermissions --print '$PROBE'"
 
 echo "" | tee -a "$RESULTS_LOG"
 echo "Codex (OAuth/ChatGPT Plus)" | tee -a "$RESULTS_LOG"
@@ -246,7 +249,7 @@ data['assessedAt'] = now.isoformat()
 data['nextAssessment'] = (now + datetime.timedelta(hours=6)).isoformat()
 
 def cmd(a, m):
-    if a == 'claude': return f'claude --model {m} --dangerously-skip-permissions -p'
+    if a == 'claude': return f'claude --model {m} --permission-mode bypassPermissions --print'
     if a == 'codex': return f'codex --model {m} --full-auto exec'
     if a == 'gemini': return f'gemini -m {m} -p'
     return ''
@@ -266,9 +269,11 @@ print('duty-table.json updated')
 "
 
 # Notify
-openclaw message send --channel telegram --target "6148615057" \
-  --message "📊 Weekly model assessment complete. Duty: architect=$ARCHITECT, workhorse=$WORKHORSE, reviewer=$REVIEWER, speedster=$SPEEDSTER" \
-  2>/dev/null || echo "Telegram notify failed" >> "$RESULTS_LOG"
+if [[ -n "$NOTIFY_TARGET" ]]; then
+  openclaw message send --channel "$NOTIFY_CHANNEL" --target "$NOTIFY_TARGET" \
+    --message "📊 Weekly model assessment complete. Duty: architect=$ARCHITECT, workhorse=$WORKHORSE, reviewer=$REVIEWER, speedster=$SPEEDSTER" \
+    2>/dev/null || echo "Notification send failed" >> "$RESULTS_LOG"
+fi
 
 echo "" | tee -a "$RESULTS_LOG"
 echo "Assessment complete at $(date '+%H:%M %Z')" | tee -a "$RESULTS_LOG"
