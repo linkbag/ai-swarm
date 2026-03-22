@@ -2,6 +2,24 @@
 # setup.sh — Initialize AI Swarm system in current workspace
 # Usage: bash setup.sh [swarm-dir]
 #   swarm-dir: where to install (default: ~/.openclaw/workspace/swarm)
+#
+# Supports: Linux, macOS (Intel + Apple Silicon), WSL
+
+# ── Bash version check ──
+if [[ "${BASH_VERSINFO[0]}" -lt 4 ]]; then
+  echo "⚠️  Bash ${BASH_VERSION} detected — AI Swarm requires bash 4+."
+  if [[ "$(uname)" == "Darwin" ]]; then
+    echo ""
+    echo "   macOS ships with bash 3.2. Fix:"
+    echo "     brew install bash"
+    echo "     /opt/homebrew/bin/bash scripts/setup.sh"
+    echo ""
+    echo "   Optional — make it default:"
+    echo "     echo '/opt/homebrew/bin/bash' | sudo tee -a /etc/shells"
+    echo "     chsh -s /opt/homebrew/bin/bash"
+  fi
+  exit 1
+fi
 
 set -euo pipefail
 

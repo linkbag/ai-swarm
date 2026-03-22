@@ -17,13 +17,37 @@ Multi-agent orchestration system. Spawns parallel coding agents, auto-reviews, a
 
 ## Setup
 
-First-time install:
+### Quick Install (any platform)
 ```bash
-bash scripts/setup.sh [install-dir]
-```
-Default install: `~/.openclaw/workspace/swarm/`. Creates directories, config files, cron jobs, and role files. Safe to re-run — never overwrites existing state.
+# From ClawHub (if published):
+clawhub install ai-swarm
 
-After setup, run `assess-models.sh` to test which agents are available and build the duty table.
+# Or from GitHub:
+git clone https://github.com/linkbag/ai-swarm.git
+cd ai-swarm
+bash scripts/setup.sh
+```
+
+### macOS Users
+macOS ships with bash 3.2 — AI Swarm needs bash 4+:
+```bash
+brew install bash tmux python3
+/opt/homebrew/bin/bash scripts/setup.sh
+```
+
+### Linux / WSL Users
+```bash
+sudo apt install tmux python3    # if not installed
+bash scripts/setup.sh
+```
+
+### After Setup
+```bash
+bash ~/.openclaw/workspace/swarm/assess-models.sh
+```
+Tests which agents (Claude/Codex/Gemini) are available and configures the duty table.
+
+Default install: `~/.openclaw/workspace/swarm/`. Creates directories, config files, cron jobs, and role files. Safe to re-run — never overwrites existing state.
 
 ## Architecture
 
