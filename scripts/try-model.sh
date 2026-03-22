@@ -6,10 +6,15 @@
 
 set -euo pipefail
 
+# macOS compatibility: use gtimeout if timeout not available
+if ! command -v timeout &>/dev/null && command -v gtimeout &>/dev/null; then
+  timeout() { gtimeout "$@"; }
+fi
+
 AGENT="${1:?Usage: try-model.sh <agent> <model>}"
 MODEL="${2:?Missing model}"
 
-TIMEOUT=20
+TIMEOUT=45
 
 case "$AGENT" in
   claude)
