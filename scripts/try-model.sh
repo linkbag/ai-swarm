@@ -9,7 +9,7 @@ set -euo pipefail
 AGENT="${1:?Usage: try-model.sh <agent> <model>}"
 MODEL="${2:?Missing model}"
 
-TIMEOUT=20
+TIMEOUT=45
 
 case "$AGENT" in
   claude)

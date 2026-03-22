@@ -88,15 +88,15 @@ test_model() {
   local result
   echo -n "  Testing $agent / $model ... " | tee -a "$RESULTS_LOG"
 
-  # Create a temp git repo for codex
+  # Create a temp git repo for codex (codex requires a git repo)
   local tmpdir=""
   if [[ "$agent" == "codex" ]]; then
     tmpdir=$(mktemp -d)
-    cd "$tmpdir" && git init -q 2>/dev/null
+    git init -q "$tmpdir" 2>/dev/null
     cmd="cd $tmpdir && $cmd"
   fi
 
-  if result=$(timeout 60 bash -c "$cmd" 2>&1); then
+  if result=$(timeout 120 bash -c "$cmd" 2>&1); then
     if echo "$result" | grep -qi "error\|quota\|unauthorized\|401\|429\|rate.limit\|exceeded\|capacity"; then
       echo "FAIL: $(echo "$result" | tail -1)" | tee -a "$RESULTS_LOG"
       MODEL_STATUS["${agent}/${model}"]="unavailable"
