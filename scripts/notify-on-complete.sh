@@ -155,7 +155,10 @@ while true; do
 done
 
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
-echo "✅ [$TIMESTAMP] $DESCRIPTION" >> "$NOTIFY_FILE"
+echo "[watcher] Builder finished at $TIMESTAMP"
+# NOTE: Do NOT write to pending-notifications.txt here.
+# The review pass (or no-review completion below) is the meaningful milestone.
+# Writing here causes duplicate notifications when heartbeat picks up the file.
 
 # Initialize work log if builder didn't create one
 if [[ ! -f "$WORKLOG" ]]; then
@@ -315,7 +318,8 @@ WRAPPER_EOF
       send_telegram "✅ $BASE_SESSION review auto-passed (round $LOOP): clean exit, no issues indicated"
     fi
 
-    echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] $BASE_SESSION review passed (auto-inferred)" >> "$NOTIFY_FILE"
+    # NOTE: send_telegram() already handles fallback to NOTIFY_FILE on failure.
+    # Do NOT write to NOTIFY_FILE here — causes duplicate notifications.
     echo "" >> "$WORKLOG"
     echo "### Review Round $LOOP" >> "$WORKLOG"
     echo "- Verdict: $SUMMARY" >> "$WORKLOG"
@@ -336,7 +340,7 @@ WRAPPER_EOF
 
   if [[ "$PASS" == "True" ]]; then
     send_telegram "✅ $BASE_SESSION review passed (round $LOOP): $SUMMARY"
-    echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] $BASE_SESSION review passed: $SUMMARY" >> "$NOTIFY_FILE"
+    # NOTE: send_telegram() already handles fallback to NOTIFY_FILE on failure.
     # Trigger CI/CD build notification
     if [ -n "$REVIEW_PROJECT" ]; then
       LATEST_COMMIT=$(cd "$REVIEW_PROJECT" && git rev-parse HEAD 2>/dev/null)
@@ -350,7 +354,6 @@ WRAPPER_EOF
 
   # Failed — log it and loop (next reviewer gets updated work log automatically)
   send_telegram "🔄 $BASE_SESSION review round $LOOP: issues remain — $SUMMARY"
-  echo "⚠️ [$(date '+%Y-%m-%d %H:%M:%S')] $BASE_SESSION round $LOOP failed: $SUMMARY" >> "$NOTIFY_FILE"
 done
 
 if [[ "$PASS" != "True" ]]; then
@@ -361,8 +364,28 @@ if [[ "$PASS" != "True" ]]; then
 fi
 
 # ============================================================
-# PHASE 3: Persist work log + auto-update ESR (ALWAYS runs)
+# PHASE 3: Persist work log + send shipped summary (ALWAYS runs)
 # ============================================================
 persist_and_update_esr "$SUMMARY"
+
+# ============================================================
+# STEP 11: NOTIFY — Clean "shipped" summary for WB
+# ============================================================
+# Read the work log summary section for a human-friendly shipped message.
+# Only send if we have a meaningful work log summary (avoids redundancy
+# with the review pass notification which already has review details).
+SHIPPED_SUMMARY=""
+if [[ -f "$WORKLOG" ]]; then
+  # Extract the Summary section from work log (bullet points of what changed)
+  SHIPPED_SUMMARY=$(sed -n '/^## Summary/,/^## /p' "$WORKLOG" 2>/dev/null | head -20 | grep -E '^\s*-' | head -6)
+fi
+
+if [[ -n "$SHIPPED_SUMMARY" ]]; then
+  # We have a real work log summary — send the shipped message with details
+  SHIP_MSG="🚀 ${BASE_SESSION} shipped!
+${SHIPPED_SUMMARY}"
+  send_telegram "$SHIP_MSG"
+fi
+# If no work log summary, skip — the review pass notification already covered it.
 
 exit 0

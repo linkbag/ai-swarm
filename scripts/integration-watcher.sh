@@ -221,9 +221,9 @@ Or if issues remain:
   echo '{"pass": false, "summary": "YOUR SUMMARY", "issues_remaining": "DESCRIBE REMAINING"}' > $VERDICT_FILE
 INTEG_PROMPT_EOF
 
-  # Use fallback-swap to get the working speedster command (tests primary, swaps if needed)
+  # Use fallback-swap to get the working integrator command (tests primary, swaps if needed)
   SWARM_DIR="$(cd "$(dirname "$0")" && pwd)"
-  INTEG_CMD=$("$SWARM_DIR/fallback-swap.sh" speedster 2>/dev/null) || INTEG_CMD="claude --model claude-sonnet-4-6 --permission-mode bypassPermissions --print"
+  INTEG_CMD=$("$SWARM_DIR/fallback-swap.sh" integrator 2>/dev/null) || INTEG_CMD="claude --model claude-opus-4-6 --permission-mode bypassPermissions --print"
 
   INTEG_WRAPPER="/tmp/integ-wrapper-${INTEG_SESSION}.sh"
   if echo "$INTEG_CMD" | grep -q "^gemini"; then
@@ -258,15 +258,12 @@ IWRAP_EOF
     if echo "$LATEST_MSG" | grep -qi "integration\|review\|fix\|pass\|clean"; then
       send_telegram "✅ Integration review passed (round $LOOP): fixed issues → $LATEST_MSG"
       PASS="True"
-      echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] Integration review passed (commit: $LATEST_MSG)" >> "$NOTIFY_FILE"
     elif [[ "$INTEG_LOG_UPDATED" == "true" ]]; then
       send_telegram "✅ Integration review passed (round $LOOP): no cross-team issues found"
       PASS="True"
-      echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] Integration review passed (no issues)" >> "$NOTIFY_FILE"
     else
       send_telegram "✅ Integration review auto-passed (round $LOOP): clean exit, no issues indicated"
       PASS="True"
-      echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] Integration review auto-passed" >> "$NOTIFY_FILE"
     fi
     break
   fi
@@ -277,12 +274,10 @@ IWRAP_EOF
   if [[ "$PASS" == "True" ]]; then
     send_telegram "✅ Integration review PASSED (round $LOOP): $SUMMARY"
     cd "$PROJECT_DIR" && git commit --allow-empty -m "Integration review $LOOP: passed — $SUMMARY" && git push origin main 2>/dev/null || true
-    echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] Integration review passed: $SUMMARY" >> "$NOTIFY_FILE"
     break
   fi
 
   send_telegram "🔄 Integration round $LOOP: issues remain — $SUMMARY"
-  echo "⚠️ [$(date '+%Y-%m-%d %H:%M:%S')] Integration round $LOOP: $SUMMARY" >> "$NOTIFY_FILE"
 done
 
 if [[ "$PASS" != "True" ]]; then

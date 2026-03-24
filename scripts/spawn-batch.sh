@@ -57,7 +57,7 @@ for t in data:
     desc=t.get('description','').strip()
     if not tid or not desc:
         raise SystemExit('each task requires id + description')
-    agent=(t.get('agent') or 'codex').strip()
+    agent=(t.get('agent') or 'claude').strip()
     model=(t.get('model') or '').strip()
     reasoning=(t.get('reasoning') or 'high').strip()
     print('\t'.join([tid,desc,agent,model,reasoning]))

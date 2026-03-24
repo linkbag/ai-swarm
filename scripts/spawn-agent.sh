@@ -25,6 +25,9 @@ AGENT="${4:-claude}"
 MODEL="${5:-}"
 REASONING="${6:-high}"
 
+# Strip empty model arg passed by spawn-batch
+[[ -z "$MODEL" ]] && MODEL=""
+
 # ============================================================
 # ENDORSEMENT GATE — WB must approve before any work starts
 # ============================================================
@@ -60,9 +63,9 @@ if [[ -z "$MODEL" ]] && [[ -f "$DUTY_TABLE" ]] && command -v python3 &>/dev/null
   # Map agent to duty role
   DUTY_ROLE=$(python3 -c "
 import json
-agent_map = {'claude': 'workhorse', 'codex': 'workhorse', 'gemini': 'reviewer'}
-print(agent_map.get('$AGENT', 'workhorse'))
-" 2>/dev/null || echo "workhorse")
+agent_map = {'claude': 'builder', 'codex': 'builder', 'gemini': 'builder'}
+print(agent_map.get('$AGENT', 'builder'))
+" 2>/dev/null || echo "builder")
 
   # Use fallback-swap to test + get working model (swaps duty table if primary fails)
   if [[ -x "$SWARM_DIR/fallback-swap.sh" ]]; then
@@ -93,6 +96,12 @@ except Exception:
   pass
 " 2>/dev/null)
   fi
+fi
+
+# Sanitize: reasoning values are NOT model names
+if [[ "$MODEL" == "high" || "$MODEL" == "medium" || "$MODEL" == "low" ]]; then
+  REASONING="$MODEL"
+  MODEL=""
 fi
 
 # Fallback defaults (last resort)
@@ -229,7 +238,9 @@ case "$AGENT" in
     GEMINI_API_KEY="${GEMINI_API_KEY:-}" gemini --model $MODEL -p "\$PROMPT"
     ;;
 esac
-echo "✅ Agent $TMUX_SESSION completed task: $TASK_ID ($PROJECT_NAME)" >> "$NOTIFY_FILE"
+# NOTE: Do NOT write to pending-notifications.txt here.
+# notify-on-complete.sh watcher handles all completion notifications
+# (including Telegram). Writing here causes duplicate notifications.
 RUNNER_EOF
 chmod +x "$RUNNER_SCRIPT"
 
