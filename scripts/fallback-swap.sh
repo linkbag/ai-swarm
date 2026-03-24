@@ -6,7 +6,7 @@
 # Outputs the working command to stdout (caller captures it).
 # Exit 0 = got a working model; Exit 1 = both failed.
 #
-# Roles: architect, workhorse, reviewer, speedster
+# Roles: architect, builder, reviewer, integrator
 
 set -euo pipefail
 

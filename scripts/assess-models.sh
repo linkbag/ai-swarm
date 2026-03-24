@@ -60,14 +60,14 @@ data['assessedAt'] = now.isoformat()
 data['nextAssessment'] = (now + datetime.timedelta(hours=6)).isoformat()
 data['dutyTable'] = {
     'architect': {'agent': 'claude', 'model': 'claude-opus-4-6', 'reason': 'FALLBACK: High token limit, best reasoning', 'nonInteractiveCmd': 'claude --model claude-opus-4-6 --permission-mode bypassPermissions --print'},
-    'workhorse': {'agent': 'claude', 'model': 'claude-sonnet-4-6', 'reason': 'FALLBACK: High token limit, reliable', 'nonInteractiveCmd': 'claude --model claude-sonnet-4-6 --permission-mode bypassPermissions --print'},
+    'builder': {'agent': 'claude', 'model': 'claude-sonnet-4-6', 'reason': 'FALLBACK: High token limit, reliable', 'nonInteractiveCmd': 'claude --model claude-sonnet-4-6 --permission-mode bypassPermissions --print'},
     'reviewer': {'agent': 'claude', 'model': 'claude-sonnet-4-6', 'reason': 'FALLBACK: High token limit, fast review', 'nonInteractiveCmd': 'claude --model claude-sonnet-4-6 --permission-mode bypassPermissions --print'},
-    'speedster': {'agent': 'claude', 'model': 'claude-sonnet-4-6', 'reason': 'FALLBACK: High token limit, fastest reliable', 'nonInteractiveCmd': 'claude --model claude-sonnet-4-6 --permission-mode bypassPermissions --print'}
+    'integrator': {'agent': 'claude', 'model': 'claude-sonnet-4-6', 'reason': 'FALLBACK: High token limit, fastest reliable', 'nonInteractiveCmd': 'claude --model claude-sonnet-4-6 --permission-mode bypassPermissions --print'}
 }
 data['history'].append({
     'date': now.strftime('%Y-%m-%d'),
     'changes': 'FALLBACK to Claude-heavy table (token/quota limits on Codex/Gemini)',
-    'dutyAssignments': 'architect=claude/opus-4-6, workhorse=claude/sonnet-4-6, reviewer=claude/sonnet-4-6, speedster=claude/sonnet-4-6'
+    'dutyAssignments': 'architect=claude/opus-4-6, builder=claude/sonnet-4-6, reviewer=claude/sonnet-4-6, integrator=claude/sonnet-4-6'
 })
 with open('$DUTY_TABLE', 'w') as f: json.dump(data, f, indent=2)
 print('duty-table.json updated (FALLBACK)')
@@ -203,10 +203,10 @@ ARCHITECT="claude/claude-opus-4-6"
 
 # Workhorse: Codex preferred, fallback to Claude Sonnet
 if [[ "$CODEX_OK" == "available" ]]; then
-  WORKHORSE="codex/gpt-5.3-codex"
+  BUILDER="codex/gpt-5.3-codex"
 else
-  WORKHORSE="claude/claude-sonnet-4-6"
-  echo "⚠️ Codex unavailable, Claude Sonnet takes workhorse" | tee -a "$RESULTS_LOG"
+  BUILDER="claude/claude-sonnet-4-6"
+  echo "⚠️ Codex unavailable, Claude Sonnet takes builder" | tee -a "$RESULTS_LOG"
 fi
 
 # Reviewer: Gemini Pro preferred, fallback to Flash, then Claude
@@ -220,14 +220,14 @@ else
 fi
 
 # Speedster: Claude Sonnet (always — fast + high token limit)
-SPEEDSTER="claude/claude-sonnet-4-6"
+INTEGRATOR="claude/claude-opus-4-6"
 
 echo "" | tee -a "$RESULTS_LOG"
 echo "Duty Assignments:" | tee -a "$RESULTS_LOG"
 echo "  architect  = $ARCHITECT" | tee -a "$RESULTS_LOG"
-echo "  workhorse  = $WORKHORSE" | tee -a "$RESULTS_LOG"
+echo "  builder  = $BUILDER" | tee -a "$RESULTS_LOG"
 echo "  reviewer   = $REVIEWER" | tee -a "$RESULTS_LOG"
-echo "  speedster  = $SPEEDSTER" | tee -a "$RESULTS_LOG"
+echo "  integrator  = $INTEGRATOR" | tee -a "$RESULTS_LOG"
 
 [[ -n "$DRY_RUN" ]] && { echo "Dry run — not updating duty-table.json"; exit 0; }
 
@@ -254,7 +254,7 @@ def cmd(a, m):
     if a == 'gemini': return f'gemini -m {m} -p'
     return ''
 
-for role, am in {'architect':'$ARCHITECT','workhorse':'$WORKHORSE','reviewer':'$REVIEWER','speedster':'$SPEEDSTER'}.items():
+for role, am in {'architect':'$ARCHITECT','builder':'$BUILDER','reviewer':'$REVIEWER','integrator':'$INTEGRATOR'}.items():
     if am:
         a, m = am.split('/')
         data['dutyTable'][role] = {'agent': a, 'model': m, 'reason': role + ' role (auto-assessed)', 'nonInteractiveCmd': cmd(a, m)}
@@ -262,7 +262,7 @@ for role, am in {'architect':'$ARCHITECT','workhorse':'$WORKHORSE','reviewer':'$
 data['history'].append({
     'date': now.strftime('%Y-%m-%d'),
     'changes': 'Weekly assessment: $MODEL_SUMMARY',
-    'dutyAssignments': 'architect=$ARCHITECT, workhorse=$WORKHORSE, reviewer=$REVIEWER, speedster=$SPEEDSTER'
+    'dutyAssignments': 'architect=$ARCHITECT, builder=$BUILDER, reviewer=$REVIEWER, integrator=$INTEGRATOR'
 })
 with open('$DUTY_TABLE', 'w') as f: json.dump(data, f, indent=2)
 print('duty-table.json updated')
@@ -271,7 +271,7 @@ print('duty-table.json updated')
 # Notify
 if [[ -n "$NOTIFY_TARGET" ]]; then
   openclaw message send --channel "$NOTIFY_CHANNEL" --target "$NOTIFY_TARGET" \
-    --message "📊 Weekly model assessment complete. Duty: architect=$ARCHITECT, workhorse=$WORKHORSE, reviewer=$REVIEWER, speedster=$SPEEDSTER" \
+    --message "📊 Weekly model assessment complete. Duty: architect=$ARCHITECT, builder=$BUILDER, reviewer=$REVIEWER, integrator=$INTEGRATOR" \
     2>/dev/null || echo "Notification send failed" >> "$RESULTS_LOG"
 fi
 

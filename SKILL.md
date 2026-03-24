@@ -81,12 +81,12 @@ swarm/
 
 ### Duty Table (3-vendor pipeline)
 
-| Role | Default | Purpose |
-|------|---------|---------|
-| Architect | Claude Opus | Complex design, architecture decisions |
-| Workhorse | Codex/Claude Sonnet | Standard feature building |
-| Reviewer | Gemini Pro/Claude Sonnet | Code review + fix |
-| Speedster | Claude Sonnet | Quick fixes, integration |
+| Role | Default | Phase | Purpose |
+|------|---------|-------|---------|
+| Architect | Claude Opus | Phase 1 (Steps 1-5) | Plan, research, spawn agents |
+| Builder | Claude Sonnet / Codex | Phase 2 (Step 6) | Code the task |
+| Reviewer | Claude Sonnet / Codex | Phase 2 (Step 7) | Review + fix |
+| Integrator | Claude Opus | Phase 3 (Steps 8-11) | Merge, cross-team review, ship |
 
 Auto-assessed every 6 hours via cron. If a vendor hits quota limits, auto-rotates to another. See `references/ROLE.md` for full workflow.
 

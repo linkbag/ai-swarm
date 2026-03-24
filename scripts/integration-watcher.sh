@@ -221,9 +221,9 @@ Or if issues remain:
   echo '{"pass": false, "summary": "YOUR SUMMARY", "issues_remaining": "DESCRIBE REMAINING"}' > $VERDICT_FILE
 INTEG_PROMPT_EOF
 
-  # Use fallback-swap to get the working speedster command (tests primary, swaps if needed)
+  # Use fallback-swap to get the working integrator command (tests primary, swaps if needed)
   SWARM_DIR="$(cd "$(dirname "$0")" && pwd)"
-  INTEG_CMD=$("$SWARM_DIR/fallback-swap.sh" speedster 2>/dev/null) || INTEG_CMD="claude --model claude-sonnet-4-6 --permission-mode bypassPermissions --print"
+  INTEG_CMD=$("$SWARM_DIR/fallback-swap.sh" integrator 2>/dev/null) || INTEG_CMD="claude --model claude-opus-4-6 --permission-mode bypassPermissions --print"
 
   INTEG_WRAPPER="/tmp/integ-wrapper-${INTEG_SESSION}.sh"
   if echo "$INTEG_CMD" | grep -q "^gemini"; then
